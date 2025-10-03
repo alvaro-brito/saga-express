@@ -1,0 +1,117 @@
+apiVersion: saga/v1
+kind: SagaConfiguration
+metadata:
+  name: test-order-saga-localhost
+  version: "1.0.0"
+  description: "Simple SAGA for testing order processing with localhost services"
+
+webhook:
+  path: "/saga/test-order"
+  method: POST
+  authentication:
+    type: none
+  timeout: 30s
+
+executions:
+  # Step 1 - Validate order
+  - name: validate-order
+    type: api
+    endpoint:
+      url: "http://localhost:8001/validate"
+      method: POST
+      headers:
+        Content-Type: "application/json"
+    body:
+      order_id: "${webhook.order_id}"
+      customer_id: "${webhook.customer_id}"
+      items: "${webhook.items}"
+    success:
+      condition: "response.status == 200"
+      extract:
+        validated_order_id: "response.body.order_id"
+        total_amount: "response.body.total_amount"
+    error:
+      condition: "response.status != 200"
+      rollback: null
+    timeout: 10s
+
+  # Step 2 - Reserve inventory
+  - name: reserve-inventory
+    type: api
+    endpoint:
+      url: "http://localhost:8002/reserve"
+      method: POST
+      headers:
+        Content-Type: "application/json"
+    body:
+      order_id: "${validate-order.validated_order_id}"
+      items: "${webhook.items}"
+      reservation_timeout: "300s"
+    success:
+      condition: "response.status == 200"
+      extract:
+        reservation_id: "response.body.reservation_id"
+        reserved_items: "response.body.reserved_items"
+    error:
+      condition: "response.status != 200"
+      rollback:
+        type: api
+        endpoint:
+          url: "http://localhost:8002/cancel-reservation"
+          method: DELETE
+        body:
+          reservation_id: "${reserve-inventory.reservation_id}"
+    timeout: 15s
+
+  # Step 3 - Process payment
+  - name: process-payment
+    type: api
+    endpoint:
+      url: "http://localhost:8003/charge"
+      method: POST
+      headers:
+        Content-Type: "application/json"
+    body:
+      amount: "${validate-order.total_amount}"
+      currency: "BRL"
+      customer_id: "${webhook.customer_id}"
+      order_id: "${validate-order.validated_order_id}"
+      payment_method: "${webhook.payment_method}"
+    success:
+      condition: "response.status == 200"
+      extract:
+        transaction_id: "response.body.transaction_id"
+        charged_amount: "response.body.amount"
+    error:
+      condition: "response.status != 200"
+      rollback:
+        type: api
+        endpoint:
+          url: "http://localhost:8003/refund"
+          method: POST
+        body:
+          transaction_id: "${process-payment.transaction_id}"
+          amount: "${process-payment.charged_amount}"
+    timeout: 20s
+
+  # Step 4 - Confirm inventory
+  - name: confirm-inventory
+    type: api
+    endpoint:
+      url: "http://localhost:8002/confirm"
+      method: POST
+    body:
+      reservation_id: "${reserve-inventory.reservation_id}"
+      order_id: "${validate-order.validated_order_id}"
+    success:
+      condition: "response.status == 200"
+      extract:
+        confirmed_items: "response.body.confirmed_items"
+    error:
+      condition: "response.status != 200"
+      rollback: null
+    timeout: 10s
+
+saga_config:
+  rollback_strategy: sequential
+  global_timeout: 120s
