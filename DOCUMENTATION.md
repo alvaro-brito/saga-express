@@ -382,9 +382,9 @@ O projeto inclui 3 serviços mock para testes:
 ```bash
 # Iniciar serviços mock manualmente
 cd mock_services
-uv run python mock_services/order_service.py &
-uv run python mock_services/inventory_service.py &
-uv run python mock_services/payment_service.py &
+uv run uvicorn order_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn inventory_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn payment_service.py --host 0.0.0.0 --port 8001 --reload &
 ```
 
 ## Monitoramento

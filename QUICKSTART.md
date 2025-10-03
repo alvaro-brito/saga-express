@@ -281,9 +281,9 @@ curl http://localhost:8003/
 Se não estiverem, inicie manualmente:
 ```bash
 cd mock_services
-python order_service_8001.py &
-python inventory_service_8002.py &
-python payment_service_8003.py &
+uv run uvicorn order_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn inventory_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn payment_service.py --host 0.0.0.0 --port 8001 --reload &
 ```
 
 ##  Suporte
