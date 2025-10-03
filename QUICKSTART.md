@@ -111,9 +111,9 @@ uv run python examples/test_saga.py
 ```bash
 # Iniciar serviços mock
 cd mock_services
-uv run python order_service_8001.py &
-uv run python inventory_service_8002.py &
-uv run python payment_service_8003.py &
+uv run uvicorn order_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn inventory_service.py --host 0.0.0.0 --port 8001 --reload &
+uv run uvicorn payment_service.py --host 0.0.0.0 --port 8001 --reload &
 cd ..
 
 # Executar teste completo
